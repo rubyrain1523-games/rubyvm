@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RubyVM — Virtual Computer Manager</title>
+<style>
+:root{--pink:#ff347f;--bg:#090910;--panel:#14141f;--line:#303044;--muted:#a5a5b8;--green:#70e6a0}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 12% 0,#301025 0,transparent 42%),var(--bg);color:#f5f2f8;font:15px system-ui,sans-serif}
+header{padding:19px max(18px,calc((100vw - 1160px)/2));border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px}.logo{font-size:25px;font-weight:900;letter-spacing:-1px}.logo b{color:var(--pink)}.tag,.muted{color:var(--muted);font-size:12px}
+main{max-width:1160px;margin:24px auto;padding:0 18px;display:grid;grid-template-columns:270px 1fr;gap:17px}
+.card{background:#12121c;border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0}h2{font-size:16px;margin:0 0 12px}h3{font-size:13px;color:#ffc4dc;margin:18px 0 8px}
+button,.btn{border:1px solid #514052;background:#211a27;color:white;padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13px}button.primary{background:var(--pink);border-color:var(--pink);color:#170812}button:disabled{opacity:.4;cursor:not-allowed}
+input,select{background:#201b28;color:white;border:1px solid #514052;border-radius:9px;padding:9px;width:100%;min-width:0}input[type=file]{display:none}label{font-size:12px;color:var(--muted);display:grid;gap:5px}.btn{display:inline-block;text-align:center}
+.stack{display:grid;gap:9px}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.row>*{min-width:0}.machine{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:8px}.machine.active{border-color:var(--pink);background:#211520}.machine strong{font-size:14px}.machine small{color:var(--muted)}.machine button{padding:7px 9px}
+.osgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.os{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:7px}.os .emoji{font-size:24px}.os p{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+#screenwrap{background:#050507;border:1px solid #454052;border-radius:12px;min-height:min(70vh,640px);display:grid;place-items:center;padding:10px;overflow:hidden}#screen_container{width:100%;min-height:min(65vh,600px);display:grid;place-items:center;overflow:auto}#screen_container>div{white-space:pre;font:14px monospace;line-height:14px;color:#ddd;user-select:text;-webkit-user-select:text}#screen_container canvas{width:100%;height:auto;max-height:100%;object-fit:contain;image-rendering:pixelated}#screenwrap:fullscreen{width:100vw;height:100vh!important;border:0;border-radius:0}#screenwrap:fullscreen #screen_container{height:100%}
+#placeholder{text-align:center;color:#8c8798;padding:35px 12px}.log{background:#08080d;border:1px solid var(--line);border-radius:10px;padding:10px;height:105px;overflow:auto;color:#b7efc9;font:12px ui-monospace,monospace;white-space:pre-wrap}
+#componentlist{display:grid;gap:7px}.comp{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:6px 0;font-size:12px}.good{color:var(--green)}.bad{color:#ff9bab}.hidden{display:none!important}.hint{font-size:12px;color:var(--muted);line-height:1.5}
+.chip{font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;border:1px solid var(--line);white-space:nowrap}.chip.p{color:var(--green);border-color:#2f6a49}.chip.m{color:#ff9bab;border-color:#7a3340}.chip.o{color:#9fc4ff;border-color:#34507a}.chip.u{color:#ffd98a;border-color:#7a6434}
+.banner{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5;border:1px solid var(--line);margin:9px 0}.banner.ok{border-color:#2f6a49;background:#10231a;color:var(--green)}.banner.warn{border-color:#7a3340;background:#271217;color:#ffb3c0}
+.tree{border:1px solid var(--line);border-radius:10px;padding:6px 10px;max-height:340px;overflow:auto;background:#0d0d15;font-size:13px}.tree details{margin-left:14px}.tree summary{cursor:pointer;padding:3px 0}.frow{display:flex;align-items:center;gap:7px;padding:3px 0;border-bottom:1px solid #1d1d2a;flex-wrap:wrap}.frow .nm{flex:1;min-width:120px;word-break:break-all}.frow button{padding:3px 7px;font-size:11px}
+.modal{position:fixed;inset:0;background:#000c;display:grid;place-items:center;z-index:50;padding:12px}.edbox{background:#12121c;border:1px solid var(--pink);border-radius:14px;width:min(980px,100%);height:min(88vh,780px);display:flex;flex-direction:column;padding:12px;gap:8px}.edbox label{display:flex;align-items:center;gap:6px;white-space:nowrap}.edbox select{width:auto;padding:6px}.edbox input[type=checkbox]{width:auto}
+#edta{flex:1;resize:none;background:#08080d;color:#ece9f3;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.55 ui-monospace,Menlo,monospace;tab-size:4;white-space:pre;overflow:auto;outline:none}#edta:focus{border-color:var(--pink)}#edtitle{font-weight:800;font-size:14px;word-break:break-all;flex:1}
+#screenwrap{resize:vertical}#screenwrap[style*="height"] #screen_container{min-height:0;height:100%}main.focus{grid-template-columns:1fr;max-width:none}main.focus>aside{display:none}.recing{border-color:#ff4d6d!important;color:#ff8da1!important}
+footer{max-width:1160px;margin:0 auto;padding:0 18px 28px;color:#777487;font-size:12px}
+@media(max-width:800px){main{grid-template-columns:1fr}#screenwrap{min-height:270px}#screen_container{min-height:240px}}
+</style></head>
+<body>
+<header><div><div class="logo">◆ RUBY<b>VM</b></div><div class="tag">MULTI-OS VIRTUAL COMPUTER MANAGER · 0.6</div></div><div class="tag" id="globalstatus">PREBOOT READY</div></header>
+<main>
+<aside class="card">
+<h2>My computers</h2>
+<div id="machines" class="stack"></div>
+<div class="row" style="margin-top:10px"><button class="primary" id="newmachine">＋ New computer</button></div>
+<h3>Emulator components</h3>
+<div id="componentlist"></div>
+<p class="hint">Components are shared by all machines. Each computer keeps its own OS image and settings.</p>
+<div class="stack">
+<a href="https://github.com/copy/v86/releases" target="_blank" rel="noopener">v86 releases</a>
+<a href="https://github.com/copy/v86" target="_blank" rel="noopener">v86 source / docs</a>
+<a href="https://raw.githubusercontent.com/copy/v86/master/bios/seabios.bin" target="_blank" rel="noopener">SeaBIOS</a>
+<a href="https://raw.githubusercontent.com/copy/v86/master/bios/vgabios.bin" target="_blank" rel="noopener">VGA BIOS</a>
+</div>
+<h3>Browser storage</h3><div class="hint" id="storinfo">…</div><div class="row" style="margin-top:6px"><button id="persist">🛡 Protect my data</button></div>
+<h3>Import shared components</h3>
+<div class="stack">
+<label>v86 JavaScript<input id="lib" type="file" accept=".js"></label>
+<label>v86 WebAssembly<input id="wasm" type="file" accept=".wasm"></label>
+<label>SeaBIOS<input id="bios" type="file" accept=".bin"></label>
+<label>VGA BIOS<input id="vgabios" type="file" accept=".bin"></label>
+</div>
+</aside>
+<section class="card">
+<div id="welcome">
+<h2>OS Library</h2>
+<p class="hint">Create separate virtual computers for different operating systems. v86 emulates 32-bit x86 hardware; not every modern OS or ISO will boot.</p>
+<div class="osgrid">
+<div class="os"><div class="emoji">🐧</div><strong>Linux</strong><p>Try a lightweight 32-bit x86 Linux distribution. Tiny Core is a good first desktop target; use an image compatible with v86.</p><button data-os="Linux" class="createos">Create Linux PC</button></div>
+<div class="os"><div class="emoji">🧰</div><strong>FreeDOS</strong><p>Our known working guest. Great for checking that the emulator and ISO still work.</p><button data-os="FreeDOS" class="createos">Create DOS PC</button></div>
+<div class="os"><div class="emoji">🧪</div><strong>Other x86 systems</strong><p>Try other compatible 32-bit x86 operating systems. Compatibility varies by OS and image.</p><button data-os="Other OS" class="createos">Create custom PC</button></div>
+</div>
+</div>
+<div id="machineview" class="hidden">
+<div class="row" style="justify-content:space-between"><div><h2 id="machinename">Virtual computer</h2><div class="muted" id="machineinfo">Powered off</div></div><button id="back">OS Library</button></div>
+<div id="screenwrap"><div id="placeholder"><div style="font-size:38px">▣</div><b>Computer powered off</b><p class="hint">Choose an OS image and press Power On.</p></div><div id="screen_container" hidden><div></div><canvas style="display:none"></canvas></div></div>
+<div class="row" style="margin-top:11px"><button class="primary" id="power">⏻ Power on</button><button id="stop" disabled>Stop</button><button id="fullscreen">⛶ Fullscreen</button><button id="cad">Ctrl+Alt+Del</button><button id="shot">📸 Screenshot</button><button id="rec">⏺ Record</button><button id="focus">◧ Focus mode</button><button id="rh" title="Drag the bottom-right corner of the screen to resize it, then reset here">↕ Reset height</button><button id="capmouse">🖱 Capture mouse</button><button id="copytext">Copy screen text</button><label style="width:150px">Screen size<select id="scalemode"><option value="fit">Fit to window</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label></div>
+<h3>OS folders</h3>
+<div class="row"><label style="flex:1">Active OS folder for this computer<select id="folderSel"></select></label><button id="newfolder">＋ New OS folder</button><button id="delfolder">Delete folder</button></div>
+<div id="nofolder" class="hint" style="margin-top:8px">No OS folder yet. Create one (for example "DOS"), then import the whole folder of OS files into it.</div>
+<div id="folderpanel" class="hidden" style="margin-top:9px">
+<div class="row"><label style="flex:1">Requirements profile<select id="profile"></select></label><label style="flex:1">Boot file<select id="bootsel"></select></label></div>
+<div class="row" style="margin-top:9px"><label class="btn primary" style="background:var(--pink);border-color:var(--pink);color:#170812">Import whole folder<input id="dirin" type="file" webkitdirectory multiple></label><label class="btn">Add files<input id="filein" type="file" multiple></label><button id="newfile">＋ New text file</button></div>
+<div id="check"></div>
+<input id="filter" placeholder="🔍 Filter files…" style="margin-bottom:8px"><div class="tree" id="tree"></div>
+<p class="hint">Tip: you can also drag files or a whole folder onto this panel. Files are stored in RubyVM (IndexedDB) and kept separate per OS folder. They are <b>not yet visible inside the guest OS</b> — only the chosen boot file is attached to the virtual machine. Empty subfolders can't be imported (the browser only lists files).</p>
+</div>
+<h3>Computer configuration</h3>
+<div class="row">
+<label style="flex:1">Computer name<input id="rename" maxlength="32"></label>
+<label style="width:125px">RAM<select id="ram"><option>64</option><option>128</option><option selected>256</option><option>512</option><option>1024</option></select></label>
+</div>
+<div class="row" style="margin-top:9px">
+<label style="flex:1">Quick single image (legacy, no OS folder)<input id="osfile" type="file" accept=".iso,.img,.bin"></label>
+</div>
+<div class="row" style="margin-top:9px"><label style="width:260px">Network (experimental)<select id="net"><option value="off">Off</option><option value="fetch">Built-in (web pages only, no server)</option><option value="custom">Custom relay server…</option></select></label><label style="flex:1" id="neturlwrap">Relay URL (wss:// or wisp://)<input id="neturl" placeholder="wss://…"></label></div>
+<p class="hint">The guest sees a wired network card (it can't see "wifi"). Needs a libv86.js that supports networking. Changes apply the next time you power on. Untested.</p>
+<div class="row" style="margin-top:9px"><button id="saveconfig">Save settings</button><button id="deletepc">Delete computer</button></div>
+<p class="hint">Each computer's selected image is saved in this browser's IndexedDB. Large images use browser storage, which may be cleared by ChromeOS storage cleanup. This prototype boots an image as a virtual CD-ROM; writable virtual hard disks and guest networking are later milestones.</p>
+</div>
+<h3>Activity log</h3><div class="log" id="log">RubyVM manager initialized.
+Create a virtual computer to begin.</div>
+</section>
+</main>
+<div id="edmodal" class="modal hidden"><div class="edbox">
+<div class="row"><span id="edtitle"></span><button class="primary" id="edsave">💾 Save (Ctrl+S)</button><button id="edclose">✕ Close (Esc)</button></div>
+<div class="row"><label><input type="checkbox" id="edauto" checked> Live autosave</label><label>Line endings<select id="edeol"><option value="lf">LF (Linux)</option><option value="crlf">CRLF (DOS)</option></select></label><button id="edrename">Rename / move</button><span class="muted" id="edpos" style="margin-left:auto"></span></div>
+<textarea id="edta" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+<div class="muted" id="edstat"></div></div></div>
+<footer>RubyVM is an independent learning project built around the open-source v86 emulator. It runs inside the browser and does not install or modify ChromeOS. Use OS installation media you are authorized to use.</footer>
+<script>
+(()=> {
+const DB='rubyvm-manager-v3';let db,emulator=null,activeId=null,runtimeUrls=[];
+const $=id=>document.getElementById(id);
+const req=['lib','wasm','bios','vgabios'];
+function log(s){$('log').textContent+=`\n${s}`;$('log').scrollTop=$('log').scrollHeight}
+function dbreq(req){return new Promise((res,rej)=>{req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error)})}
+async function openDB(){db=await new Promise((res,rej)=>{const r=indexedDB.open(DB,2);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('shared'))d.createObjectStore('shared');if(!d.objectStoreNames.contains('machines'))d.createObjectStore('machines',{keyPath:'id'});if(!d.objectStoreNames.contains('folders'))d.createObjectStore('folders',{keyPath:'id'}).createIndex('pc','pcId');if(!d.objectStoreNames.contains('files'))d.createObjectStore('files',{keyPath:'key'}).createIndex('folder','folder')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function get(store,key){return dbreq(db.transaction(store).objectStore(store).get(key))}
+function all(store){return dbreq(db.transaction(store).objectStore(store).getAll())}
+function put(store,val,key){return new Promise((res,rej)=>{const t=db.transaction(store,'readwrite');if(key===undefined)t.objectStore(store).put(val);else t.objectStore(store).put(val,key);t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+function del(store,key){return new Promise((res,rej)=>{const t=db.transaction(store,'readwrite');t.objectStore(store).delete(key);t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+function uid(){return 'pc-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6)}
+async function refresh(){
+ const pcs=await all('machines');$('machines').innerHTML='';
+ if(!pcs.length)$('machines').innerHTML='<div class="hint">No virtual computers yet.</div>';
+ for(const pc of pcs){const d=document.createElement('div');d.className='machine'+(pc.id===activeId?' active':'');const name=document.createElement('strong');name.textContent=pc.name;const meta=document.createElement('small');meta.textContent=pc.os+' · '+pc.ram+' MB RAM'+(pc.image?' · legacy image':'')+await folderSummary(pc);const b=document.createElement('button');b.textContent='Open';b.onclick=()=>openMachine(pc.id);d.append(name,meta,b);$('machines').append(d)}
+ $('componentlist').innerHTML='';for(const k of req){const f=await get('shared',k);const d=document.createElement('div');d.className='comp';d.innerHTML=`<span>${({lib:'libv86.js',wasm:'v86.wasm',bios:'seabios.bin',vgabios:'vgabios.bin'})[k]}</span><span class="${f?'good':'bad'}">${f?'READY':'MISSING'}</span>`;$('componentlist').append(d)}
+}
+async function newPC(os){const pc={id:uid(),name:os+' Computer',os,ram:256,image:null,created:Date.now()};await put('machines',pc);await refresh();openMachine(pc.id);log('Created '+pc.name+'. Import an OS image to boot it.')}
+async function openMachine(id){if(emulator)stopVM();const pc=await get('machines',id);if(!pc)return;activeId=id;$('welcome').classList.add('hidden');$('machineview').classList.remove('hidden');$('machinename').textContent=pc.name;$('machineinfo').textContent=pc.os+' · '+(pc.image?'OS image installed':'No OS image selected');$('rename').value=pc.name;$('ram').value=String(pc.ram);$('net').value=pc.net||'off';$('neturl').value=pc.netUrl||'';netUi();$('placeholder').hidden=false;$('screen_container').hidden=true;$('power').disabled=false;put('shared',id,'lastPc');await loadFolders();await refresh()}
+function stopVM(){if(R)R.stop();if(emulator){try{emulator.stop()}catch(e){}emulator=null}$('vmstatus')?.textContent; $('stop').disabled=true;$('power').disabled=false;$('placeholder').hidden=false;$('screen_container').hidden=true;$('machineinfo').textContent='Powered off';$('globalstatus').textContent='PREBOOT READY'}
+async function startVM(){
+ if(emulator)return;const pc=await get('machines',activeId);let src=null;
+ if(pc?.activeFolder){const f=await get('folders',pc.activeFolder);if(f){const ev=evalFolder(f,await folderFiles(f.id));const b=pickBoot(f,ev);if(ev.missing.length){const m='Missing required files in "'+f.name+'":\n- '+ev.missing.join('\n- ');if(!b&&!pc.image){alert(m+'\n\nImport the missing files before booting.');return}if(!confirm(m+'\n\nBoot anyway?'))return}if(b)src={kind:bootKind(b),blob:b.blob,name:b.path}}}
+ if(!src&&pc?.image)src={kind:'cdrom',blob:pc.image,name:pc.image.name};
+ if(!src){alert('No bootable image found. Import an OS folder containing an .iso/.img first.');return}
+ log('Boot file: '+src.name+' (attached as '+src.kind+')');
+ const shared={};for(const k of req)shared[k]=await get('shared',k);const missing=req.filter(k=>!shared[k]);if(missing.length){alert('Missing emulator components: '+missing.join(', '));log('Missing emulator components: '+missing.join(', '));return}
+ try{$('power').disabled=true;$('globalstatus').textContent='LOADING EMULATOR';log('Loading v86 runtime...');runtimeUrls.forEach(URL.revokeObjectURL);runtimeUrls=[];
+ const libUrl=URL.createObjectURL(shared.lib);runtimeUrls.push(libUrl);await new Promise((res,rej)=>{const s=document.createElement('script');s.src=libUrl;s.onload=res;s.onerror=()=>rej(Error('Could not load libv86.js'));document.head.append(s)});
+ const V=window.V86Starter||window.V86;if(!V)throw Error('v86 constructor not found. Check that libv86.js is from the v86 release.');
+ const makeURL=f=>{const u=URL.createObjectURL(f);runtimeUrls.push(u);return u};
+ $('placeholder').hidden=true;$('screen_container').hidden=false;
+ let nd={};if(pc.net==='fetch')nd={net_device:{type:'ne2k',relay_url:'fetch'}};else if(pc.net==='custom'&&pc.netUrl){if(!confirm('All of this computer\'s network traffic will pass through:\n'+pc.netUrl+'\n\nOnly continue if you trust that server.'))return;nd={net_device:{type:'ne2k',relay_url:pc.netUrl}}}
+ log('Network: '+(nd.net_device?nd.net_device.relay_url:'off'));
+ emulator=new V({...nd,wasm_path:makeURL(shared.wasm),memory_size:Number(pc.ram)*1024*1024,vga_memory_size:8*1024*1024,screen_container:$('screen_container'),bios:{url:makeURL(shared.bios)},vga_bios:{url:makeURL(shared.vgabios)},[src.kind]:{url:makeURL(src.blob)},autostart:true});
+ emulator.add_listener('emulator-ready',()=>{log(pc.name+' emulator ready; guest is booting.');try{emulator.mouse_set_status(true);emulator.keyboard_set_status(true)}catch(e){}$('globalstatus').textContent='VIRTUAL PC RUNNING';$('machineinfo').textContent=pc.os+' · Running';$('power').disabled=true;$('stop').disabled=false});
+ setTimeout(()=>{if(emulator){$('globalstatus').textContent='VIRTUAL PC RUNNING';$('power').disabled=true;$('stop').disabled=false;log('If the guest does not boot, verify that its image is compatible with v86.')}},10000);
+ }catch(e){log('START ERROR: '+e.message);alert('Could not start VM: '+e.message);emulator=null;$('power').disabled=false;$('placeholder').hidden=false;$('screen_container').hidden=true}
+}
+async function importShared(key,file){if(!file)return;await put('shared',file,key);log('Imported shared component '+file.name);await refresh()}
+$('lib').onchange=e=>importShared('lib',e.target.files[0]);$('wasm').onchange=e=>importShared('wasm',e.target.files[0]);$('bios').onchange=e=>importShared('bios',e.target.files[0]);$('vgabios').onchange=e=>importShared('vgabios',e.target.files[0]);
+document.querySelectorAll('.createos').forEach(b=>b.onclick=()=>newPC(b.dataset.os));$('newmachine').onclick=()=>newPC('Custom OS');
+$('back').onclick=async()=>{if(emulator)stopVM();activeId=null;del('shared','lastPc');$('machineview').classList.add('hidden');$('welcome').classList.remove('hidden');await refresh()};
+$('power').onclick=startVM;$('stop').onclick=()=>{stopVM();log('Virtual computer stopped.')};
+$('osfile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const pc=await get('machines',activeId);pc.image=f;await put('machines',pc);$('machineinfo').textContent=pc.os+' · OS image installed';log('Added '+f.name+' to '+pc.name);await refresh();e.target.value=''};
+$('saveconfig').onclick=async()=>{const pc=await get('machines',activeId);if(!pc)return;pc.name=$('rename').value.trim()||pc.name;pc.ram=Number($('ram').value);pc.net=$('net').value;pc.netUrl=$('neturl').value.trim();if(pc.net==='custom'&&!/^(wss?|wisps?):\/\//i.test(pc.netUrl)){alert('Custom relay URLs must start with wss://, ws://, wisp:// or wisps://');return}await put('machines',pc);$('machinename').textContent=pc.name;log('Saved settings for '+pc.name);await refresh()};
+$('deletepc').onclick=async()=>{if(!confirm('Delete this virtual computer, its OS folders and all their files?'))return;if(emulator)stopVM();for(const f of await foldersOf(activeId)){await delFolderFiles(f.id);await del('folders',f.id)}await del('machines',activeId);activeId=null;$('machineview').classList.add('hidden');$('welcome').classList.remove('hidden');log('Computer deleted.');await refresh()};
+$('fullscreen').onclick=async()=>{try{if(!document.fullscreenElement)await $('screenwrap').requestFullscreen();else await document.exitFullscreen()}catch(e){log('Fullscreen unavailable: '+e.message)}};
+$('copytext').onclick=async()=>{const t=$('screen_container').innerText||$('screen_container').querySelector('div')?.innerText||'';if(!t.trim()){alert('This graphics screen may not expose selectable text.');return}try{await navigator.clipboard.writeText(t);log('Screen text copied.')}catch(e){alert('Clipboard permission denied. Try selecting text directly.') }};
+
+// ===== OS folders (0.4) =====
+const IMG=/\.(iso|img|ima|vfd)$/i,INITRD=/(^|\/)(initrd|initramfs)/i,BOOT=p=>IMG.test(p)&&!INITRD.test(p);
+const BOOTLBL='Bootable image (.iso CD-ROM, or .img / .ima / .vfd floppy or disk)';
+const PROFILES={
+dos:{name:'FreeDOS / DOS',rules:[{label:BOOTLBL,req:1,boot:1,test:BOOT},{label:'Readme / license text',req:0,test:p=>/(^|\/)(readme|license|copying)[^/]*\.(txt|md)$/i.test(p)}]},
+linux:{name:'Linux (32-bit x86)',rules:[{label:'Bootable image (.iso or .img)',req:1,boot:1,test:BOOT},{label:'Kernel (bzImage / vmlinuz) — stored only; direct-kernel boot not wired up yet',req:0,test:p=>/(^|\/)(bzimage|vmlinuz)[^/]*$/i.test(p)},{label:'Initrd / core.gz — stored only; not used for boot yet',req:0,test:p=>/(^|\/)(initrd|initramfs|core)[^/]*$/i.test(p)}]},
+custom:{name:'Custom OS',rules:[{label:BOOTLBL,req:1,boot:1,test:BOOT}]}};
+const PROF_FOR={'FreeDOS':'dos','Linux':'linux'};
+const fmt=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
+const foldersOf=pid=>dbreq(db.transaction('folders').objectStore('folders').index('pc').getAll(pid));
+const folderFiles=fid=>dbreq(db.transaction('files').objectStore('files').index('folder').getAll(fid));
+async function delFolderFiles(fid){const keys=await dbreq(db.transaction('files').objectStore('files').index('folder').getAllKeys(fid));await new Promise((res,rej)=>{const t=db.transaction('files','readwrite');keys.forEach(k=>t.objectStore('files').delete(k));t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+function evalFolder(f,files){const P=PROFILES[f.profile]||PROFILES.custom;const claim=new Map();files.forEach(x=>claim.set(x.path,P.rules.findIndex(r=>r.test(x.path))));
+ const rows=P.rules.map((r,i)=>({r,found:files.filter(x=>claim.get(x.path)===i)}));
+ return{P,claim,rows,missing:rows.filter(x=>x.r.req&&!x.found.length).map(x=>x.r.label),boots:(rows.find(x=>x.r.boot)||{found:[]}).found,unrec:files.filter(x=>claim.get(x.path)<0)}}
+function pickBoot(f,ev){return ev.boots.find(x=>x.path===f.boot)||[...ev.boots].sort((a,b)=>(/\.iso$/i.test(b.path)-/\.iso$/i.test(a.path))||a.path.localeCompare(b.path))[0]}
+function bootKind(x){return /\.iso$/i.test(x.path)?'cdrom':(x.size<=2949120?'fda':'hda')}
+async function folderSummary(pc){if(!pc.activeFolder)return pc.image?'':' · no OS folder';const f=await get('folders',pc.activeFolder);if(!f)return ' · no OS folder';const ev=evalFolder(f,await folderFiles(f.id));return ' · '+f.name+(ev.missing.length?' · ⚠ '+ev.missing.length+' required missing':' · files ready')}
+function curId(){return $('folderSel').value}
+async function loadFolders(){const pc=await get('machines',activeId);const fs=pc?await foldersOf(activeId):[];const sel=$('folderSel');sel.innerHTML='';fs.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.name;sel.append(o)});
+ if(fs.length){sel.value=fs.some(f=>f.id===pc.activeFolder)?pc.activeFolder:fs[0].id;if(pc.activeFolder!==sel.value){pc.activeFolder=sel.value;await put('machines',pc)}}
+ $('nofolder').classList.toggle('hidden',!!fs.length);$('folderpanel').classList.toggle('hidden',!fs.length);$('delfolder').disabled=!fs.length;sel.disabled=!fs.length;
+ const ps=$('profile');if(!ps.options.length)for(const k in PROFILES){const o=document.createElement('option');o.value=k;o.textContent=PROFILES[k].name;ps.append(o)}
+ if(fs.length)await renderFolder()}
+async function renderFolder(){const f=await get('folders',curId());if(!f)return;const files=(await folderFiles(f.id)).sort((a,b)=>a.path.localeCompare(b.path));const ev=evalFolder(f,files);
+ $('profile').value=PROFILES[f.profile]?f.profile:'custom';const bs=$('bootsel');bs.innerHTML='<option value="">Auto (prefer .iso)</option>';ev.boots.forEach(x=>{const o=document.createElement('option');o.value=x.path;o.textContent=x.path;bs.append(o)});bs.value=ev.boots.some(x=>x.path===f.boot)?f.boot:'';
+ // requirements check
+ const ck=$('check');ck.innerHTML='';const bn=document.createElement('div');const sh=[];for(const k of req)if(!await get('shared',k))sh.push(k);
+ bn.className='banner '+(ev.missing.length?'warn':'ok');
+ bn.textContent=ev.missing.length?'⚠ Not ready: '+ev.missing.length+' required item(s) missing. You will be warned before booting.':(files.length?'✔ Required files found. Boot file: '+(pickBoot(f,ev)||{}).path:'');
+ if(sh.length)bn.textContent+=' Emulator components missing: '+sh.join(', ')+'.';
+ if(bn.textContent){if(sh.length&&!ev.missing.length)bn.className='banner warn';ck.append(bn)}
+ ev.rows.forEach(({r,found})=>{const d=document.createElement('div');d.className='comp';const a=document.createElement('span');a.textContent=r.label;const c=document.createElement('span');c.className='chip '+(r.req?(found.length?'p':'m'):'o');c.textContent=r.req?(found.length?'Present ('+found.length+')':'Missing'):(found.length?'Optional · found':'Optional · not found');d.append(a,c);ck.append(d)});
+ if(ev.unrec.length){const d=document.createElement('div');d.className='comp';const a=document.createElement('span');a.textContent=ev.unrec.length+' unrecognized file(s) for this profile'+(ev.unrec.some(x=>/\.(zip|7z|gz|tar|rar)$/i.test(x.path))?' — archives must be extracted first; RubyVM cannot read them yet':'');const c=document.createElement('span');c.className='chip u';c.textContent='Unrecognized';d.append(a,c);ck.append(d)}
+ // tree
+ const tr=$('tree');tr.innerHTML='';if(!files.length){tr.innerHTML='<div class="hint">This folder is empty. Use “Import whole folder” or “Add files”.</div>';return}
+ const q=$('filter').value.trim().toLowerCase();const shown=files.filter(x=>x.path.toLowerCase().includes(q));if(q&&!shown.length){tr.innerHTML='<div class="hint">No files match.</div>';return}const root={d:{},f:[]};shown.forEach(x=>{const p=x.path.split('/');let n=root;p.slice(0,-1).forEach(s=>n=n.d[s]||(n.d[s]={d:{},f:[]}));n.f.push({name:p[p.length-1],x})});
+ const cnt=n=>n.f.length+Object.values(n.d).reduce((a,b)=>a+cnt(b),0);const boot=pickBoot(f,ev);
+ const draw=(n,par,open)=>{Object.keys(n.d).sort().forEach(k=>{const dt=document.createElement('details');dt.open=open;const sm=document.createElement('summary');sm.textContent='📁 '+k+'  ('+cnt(n.d[k])+')';dt.append(sm);draw(n.d[k],dt,!!q);par.append(dt)});
+  n.f.forEach(({name,x})=>{const r=document.createElement('div');r.className='frow';const nm=document.createElement('span');nm.className='nm';nm.textContent=name+'  · '+fmt(x.size)+(boot&&boot.path===x.path?'  ▶ boot':'');const i=ev.claim.get(x.path);const c=document.createElement('span');c.className='chip '+(i<0?'u':ev.P.rules[i].req?'p':'o');c.textContent=i<0?'Unrecognized':ev.P.rules[i].req?'Present':'Optional';
+   const rp=document.createElement('button');rp.textContent='Replace';rp.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.onchange=async()=>{if(inp.files[0]){await saveFile(f.id,x.path,inp.files[0]);log('Replaced '+x.path);await afterChange()}};inp.click()};
+   const rm=document.createElement('button');rm.textContent='Remove';rm.onclick=async()=>{if(!confirm('Remove '+x.path+' from this OS folder?'))return;await del('files',x.key);log('Removed '+x.path);await afterChange()};const ed=document.createElement('button');ed.textContent='Edit';ed.onclick=()=>openEditor(f.id,x.path,f.profile==='dos');nm.style.cursor='pointer';nm.onclick=ed.onclick;const dw=document.createElement('button');dw.textContent='Download';dw.onclick=()=>dl(x.blob,name);r.append(nm,c,ed,dw,rp,rm);par.append(r)})};
+ draw(root,tr,true)}
+async function afterChange(){await renderFolder();await refresh();updateStorage()}
+function saveFile(fid,path,file){return put('files',{key:fid+'|'+path,folder:fid,path,size:file.size,type:file.type,blob:file,added:Date.now()})}
+async function importFiles(list,isDir){const fid=curId();if(!fid||!list.length)return;
+ const items=[];let skipped=0;for(const file of list){let p=(isDir&&file.webkitRelativePath)?file.webkitRelativePath.split('/').slice(1).join('/'):file.name;p=p.split('/').filter(x=>x&&x!=='.'&&x!=='..').join('/');if(!p||/(^|\/)(\.DS_Store|Thumbs\.db)$/i.test(p)){skipped++;continue}items.push({file,path:p})}
+ const have=new Set((await folderFiles(fid)).map(x=>x.path));const dup=items.filter(x=>have.has(x.path));
+ if(dup.length&&!confirm(dup.length+' file(s) already exist in this OS folder and will be replaced (e.g. '+dup[0].path+'). Continue?'))return;
+ let n=0;try{for(const it of items){await saveFile(fid,it.path,it.file);n++;if(n%20===0||n===items.length){$('globalstatus').textContent='IMPORTING '+n+'/'+items.length}}}catch(e){log('IMPORT ERROR after '+n+' files: '+e.message+' (storage may be full)');alert('Import stopped: '+e.message)}
+ $('globalstatus').textContent='PREBOOT READY';log('Imported '+n+' file(s)'+(skipped?', skipped '+skipped+' junk file(s)':'')+(dup.length?', replaced '+dup.length:'')+'.');await afterChange()}
+$('dirin').onchange=async e=>{const l=[...e.target.files];e.target.value='';await importFiles(l,true)};
+$('filein').onchange=async e=>{const l=[...e.target.files];e.target.value='';await importFiles(l,false)};
+$('folderSel').onchange=async()=>{const pc=await get('machines',activeId);pc.activeFolder=curId();await put('machines',pc);await afterChange()};
+$('profile').onchange=async()=>{const f=await get('folders',curId());f.profile=$('profile').value;await put('folders',f);await afterChange()};
+$('bootsel').onchange=async()=>{const f=await get('folders',curId());f.boot=$('bootsel').value;await put('folders',f);await afterChange()};
+$('newfolder').onclick=async()=>{const pc=await get('machines',activeId);if(!pc)return;const name=(prompt('Name for the new OS folder (e.g. DOS, Linux, Alpine):',pc.os==='FreeDOS'?'DOS':pc.os)||'').trim().slice(0,40);if(!name)return;
+ const f={id:'f-'+uid(),pcId:pc.id,name,profile:PROF_FOR[pc.os]||'custom',boot:'',created:Date.now()};await put('folders',f);pc.activeFolder=f.id;await put('machines',pc);log('Created OS folder "'+name+'" ('+PROFILES[f.profile].name+' profile).');await loadFolders();await refresh()};
+$('delfolder').onclick=async()=>{const f=await get('folders',curId());if(!f||!confirm('Delete OS folder "'+f.name+'" and every file in it?'))return;await delFolderFiles(f.id);await del('folders',f.id);const pc=await get('machines',activeId);pc.activeFolder=null;await put('machines',pc);log('Deleted OS folder "'+f.name+'".');await loadFolders();await refresh()};
+
+// ===== screen fitting (0.4.1) =====
+let curZoom=1;
+function fitScreen(){const c=$('screen_container'),d=c.firstElementChild;if(!d||c.hidden)return;const mode=$('scalemode').value;
+ const r=d.getBoundingClientRect();if(!r.width||d.style.display==='none')return;const nw=r.width/curZoom,nh=r.height/curZoom;
+ const wrap=$('screenwrap'),aw=wrap.clientWidth-24,ah=(document.fullscreenElement||wrap.style.height)?wrap.clientHeight-24:Math.max(360,window.innerHeight*0.72);
+ let z=mode==='fit'?Math.min(aw/nw,ah/nh):Number(mode);z=Math.max(.5,Math.min(z,6));
+ if(Math.abs(z-curZoom)>.01){d.style.zoom=z;curZoom=z}}
+setInterval(fitScreen,400);window.addEventListener('resize',fitScreen);document.addEventListener('fullscreenchange',()=>setTimeout(fitScreen,100));
+
+// ===== mouse (0.4.2) =====
+function captureMouse(){if(!emulator){log('Power on the computer first.');return}
+ try{if(typeof emulator.lock_mouse==='function'){emulator.lock_mouse();log('Mouse captured. Press Esc to release it.')}else log('This libv86.js has no mouse-capture function; try a newer v86 release.')}catch(e){log('Mouse capture failed: '+e.message)}}
+$('capmouse').onclick=captureMouse;
+$('screen_container').addEventListener('click',e=>{if(emulator&&e.target.tagName==='CANVAS'&&!document.pointerLockElement)captureMouse()});
+document.addEventListener('pointerlockchange',()=>{$('capmouse').textContent=document.pointerLockElement?'🖱 Mouse captured (Esc to release)':'🖱 Capture mouse'});
+
+function netUi(){$('neturlwrap').classList.toggle('hidden',$('net').value!=='custom')}$('net').onchange=netUi;
+// ===== QoL + live editor (0.5) =====
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+async function updateStorage(){try{const e=await navigator.storage.estimate();const per=await navigator.storage.persisted();$('storinfo').textContent=fmt(e.usage)+' used of ~'+fmt(e.quota)+' · '+(per?'protected from auto-cleanup':'not protected from auto-cleanup')}catch(x){$('storinfo').textContent='Storage info unavailable here.'}}
+$('persist').onclick=async()=>{try{const ok=await navigator.storage.persist();log(ok?'Storage is now protected from automatic cleanup.':'Chrome declined to protect storage this time.')}catch(e){log('Not supported: '+e.message)}updateStorage()};
+$('cad').onclick=()=>{if(!emulator){log('Power on the computer first.');return}emulator.keyboard_send_scancodes([0x1D,0x38,0xE0,0x53,0xE0,0xD3,0xB8,0x9D]);log('Sent Ctrl+Alt+Del.')};
+$('shot').onclick=()=>{const cv=$('screen_container').querySelector('canvas');if(cv&&cv.style.display!=='none'&&cv.width>1){cv.toBlob(b=>dl(b,'rubyvm-screenshot.png'));log('Screenshot saved.')}else{const t=$('screen_container').innerText;if(!t.trim()){log('Nothing to capture yet.');return}dl(new Blob([t],{type:'text/plain'}),'rubyvm-screen.txt');log('Text screen saved as .txt')}};
+let ft;$('filter').oninput=()=>{clearTimeout(ft);ft=setTimeout(renderFolder,150)};
+// drag & drop import
+async function walk(en,prefix,out){if(en.isFile){await new Promise(r=>en.file(f=>{out.push({file:f,path:prefix+en.name});r()},r))}else{const rd=en.createReader();let b;do{b=await new Promise(r=>rd.readEntries(r,()=>r([])));for(const e of b)await walk(e,prefix+en.name+'/',out)}while(b.length)}}
+$('folderpanel').addEventListener('dragover',e=>e.preventDefault());
+$('folderpanel').addEventListener('drop',async e=>{e.preventDefault();const its=[...e.dataTransfer.items].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);if(!its.length)return;const out=[];for(const en of its)await walk(en,'',out);const single=its.length===1&&its[0].isDirectory;
+ out.forEach(o=>Object.defineProperty(o.file,'webkitRelativePath',{value:single?o.path:'_/'+o.path}));await importFiles(out.map(o=>o.file),true)});
+// live editor
+const E={fid:null,path:null,dirty:false,t:null};
+function edSet(d,msg){E.dirty=d;$('edstat').textContent=msg||(d?'● Unsaved changes':'Saved');$('edtitle').textContent=E.path+(d?'  •':'')}
+function edInfo(){const ta=$('edta'),v=ta.value.slice(0,ta.selectionStart),ln=v.split('\n').length;$('edpos').textContent='Ln '+ln+', Col '+(v.length-v.lastIndexOf('\n'))+' · '+ta.value.split('\n').length+' lines · '+ta.value.length+' chars'}
+async function openEditor(fid,path,dos){if(E.fid&&E.dirty&&!confirm('Discard unsaved changes in '+E.path+'?'))return;const rec=await get('files',fid+'|'+path);if(!rec)return;
+ if(rec.size>2097152){alert('Files over 2 MB can\'t be edited here.');return}
+ const head=new Uint8Array(await rec.blob.slice(0,4096).arrayBuffer());if(head.includes(0)&&!confirm('This looks like a binary file. Editing it as text can corrupt it. Open anyway?'))return;
+ const t=await rec.blob.text();E.fid=fid;E.path=path;$('edeol').value=(t.includes('\r\n')||(!t&&dos))?'crlf':'lf';$('edta').value=t.replace(/\r\n/g,'\n');
+ $('edmodal').classList.remove('hidden');edSet(false,'Opened');edInfo();$('edta').focus()}
+async function edSave(){if(!E.fid)return;clearTimeout(E.t);const eol=$('edeol').value==='crlf'?'\r\n':'\n';await saveFile(E.fid,E.path,new Blob([$('edta').value.replace(/\n/g,eol)],{type:'text/plain'}));edSet(false,'Saved '+new Date().toLocaleTimeString());await afterChange()}
+function edClose(){if(E.dirty&&!confirm('Discard unsaved changes?'))return;clearTimeout(E.t);E.fid=null;E.dirty=false;$('edmodal').classList.add('hidden')}
+$('edsave').onclick=edSave;$('edclose').onclick=edClose;$('edeol').onchange=()=>edSet(true);
+$('edta').addEventListener('input',()=>{edSet(true);edInfo();if($('edauto').checked){clearTimeout(E.t);E.t=setTimeout(edSave,900)}});
+$('edta').addEventListener('keyup',edInfo);$('edta').addEventListener('click',edInfo);
+$('edmodal').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();edSave()}else if(e.key==='Escape'){e.preventDefault();edClose()}else if(e.key==='Tab'&&e.target.id==='edta'){e.preventDefault();e.target.setRangeText('\t',e.target.selectionStart,e.target.selectionEnd,'end');e.target.dispatchEvent(new Event('input'))}});
+$('edrename').onclick=async()=>{const np=(prompt('New path:',E.path)||'').trim().replace(/^\/+/,'').replace(/\\/g,'/');if(!np||np===E.path)return;if(await get('files',E.fid+'|'+np)){alert('A file with that name already exists.');return}const old=E.path;E.path=np;await edSave();await del('files',E.fid+'|'+old);log('Renamed '+old+' → '+np);await afterChange()};
+$('newfile').onclick=async()=>{const f=await get('folders',curId());if(!f)return;const p=(prompt('New text file path (e.g. AUTOEXEC.BAT or config/notes.txt):','NOTES.TXT')||'').trim().replace(/^\/+/,'').replace(/\\/g,'/');if(!p)return;
+ if(!await get('files',f.id+'|'+p))await saveFile(f.id,p,new Blob([''],{type:'text/plain'}));await afterChange();openEditor(f.id,p,f.profile==='dos')};
+window.addEventListener('beforeunload',e=>{if(E.dirty){e.preventDefault();e.returnValue=''}});
+
+// ===== screen controls + recording (0.6) =====
+let R=null;
+$('focus').onclick=()=>{const m=document.querySelector('main');m.classList.toggle('focus');$('focus').textContent=m.classList.contains('focus')?'◨ Show sidebar':'◧ Focus mode';setTimeout(fitScreen,60)};
+$('rh').onclick=()=>{$('screenwrap').style.height='';setTimeout(fitScreen,60)};
+$('screenwrap').addEventListener('mouseup',()=>setTimeout(fitScreen,60));
+function recStart(){if(!emulator){log('Power on the computer first.');return}if(!window.MediaRecorder){log('Recording is not supported in this browser.');return}
+ const W=1280,H=720,oc=document.createElement('canvas');oc.width=W;oc.height=H;const x=oc.getContext('2d'),sc=$('screen_container');
+ const draw=()=>{x.fillStyle='#000';x.fillRect(0,0,W,H);const cv=sc.querySelector('canvas');
+  if(cv&&cv.style.display!=='none'&&cv.width>1){const k=Math.min(W/cv.width,H/cv.height),w=cv.width*k,h=cv.height*k;x.imageSmoothingEnabled=false;x.drawImage(cv,(W-w)/2,(H-h)/2,w,h)}
+  else{x.fillStyle='#e6e6e6';x.font='22px ui-monospace,Menlo,monospace';x.textBaseline='top';sc.innerText.split('\n').slice(0,25).forEach((l,i)=>x.fillText(l,60,10+i*28))}};
+ draw();const iv=setInterval(draw,33);
+ const mt=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(t=>MediaRecorder.isTypeSupported(t));
+ const mr=new MediaRecorder(oc.captureStream(30),{mimeType:mt,videoBitsPerSecond:3000000}),chunks=[];mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+ const t0=Date.now(),tick=setInterval(()=>{const n=Math.floor((Date.now()-t0)/1000);$('rec').textContent='⏹ Stop '+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')},500);
+ mr.onstop=()=>{clearInterval(iv);clearInterval(tick);$('rec').classList.remove('recing');$('rec').textContent='⏺ Record';const b=new Blob(chunks,{type:'video/webm'});dl(b,'rubyvm-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.webm');log('Recording saved ('+fmt(b.size)+', .webm).');R=null};
+ mr.start(1000);R=mr;$('rec').classList.add('recing');$('rec').textContent='⏹ Stop 00:00';log('Recording started (no audio). Text screens are recorded in plain white.')}
+$('rec').onclick=()=>R?R.stop():recStart();
+(async()=>{try{await openDB();await refresh();updateStorage();{const last=await get('shared','lastPc');if(typeof last==='string'&&await get('machines',last))await openMachine(last)}log('Local machine manager ready. Create a computer from the OS Library.')}catch(e){log('Storage initialization failed: '+e.message)}})();
+})();
+</script></body></html>
